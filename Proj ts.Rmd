@@ -1,0 +1,460 @@
+---
+title: "Time Series Project"
+author: "Hoang Sam Bui"
+date: "03/01/2022"
+output: pdf_document
+---
+
+### 1. In this project, you are asked to find, analyze, and use an ARIMA(p, d, q) model for
+the data set so2.txt. This is data from monitoring atmospheric sulfur dioxide levels from _S. Mazumdar and N. Sussman, Relationships of Air Pollution to Health: Results from the Pittsburg Study, Arch. Env.Health., 38: 17-24, 1983._
+
+### 2. Part 1: Determination of d.
+
+  You should consider a plot of the data and fit a cubic polynomial using least squares then compare
+relative sizes of the coefficients. Use the results to choose a d.
+
+_Note that overdifferencing, or choosing d too high, will result in significant loss of points._
+
+```{r,echo=F}
+data = read.delim("C:\\Users\\silve\\OneDrive\\Desktop\\STAT 485\\Data\\so2.txt",
+                  header=F)
+time = time(data$V1)
+```
+
+#(a) Present a plot of the original data.
+ 
+```{r,echo=F}
+plot.ts(data$V1, type="o", col="cadetblue", xlab = "Time",ylab="",
+        main ="Data versus Time",
+        pch = 16)
+```
+
+#(b) Make observations about possible trends.
+  
+  - We observe there is decreasing trend.
+  
+#(c) Report the results of the least square polynomial fit and the relative sizes of coefficients.
+  
+```{r,echo=F}
+#Assign variables.
+Y = data$V1
+t1 = time
+t2 = time*time
+t3 = time*time*time
+#fit the cubic square polynomial
+cubic.lm = lm(Y~ t1 + t2 + t3)
+summary(cubic.lm)
+
+
+plot.ts(data$V1, type="o", col="cadetblue", xlab = "Time",ylab="",
+        main ="Data versus Time", pch = 16)
+lines(fitted(cubic.lm), col="red")
+```
+ - The coefficients: $a_0 = 3.516*10^0$, $a_1 = 2.206*10^{-04}$, $a_2 = -1.329*10^{-05}$, $a_3 = 1.274*10^{-08}$.
+ 
+ - We observe that the size of $a_0$ is relatively larger than the others three.
+ 
+#(d) Specify d and explain your choice. 
+
+ - We choose d = 1 since the coefficient size of each explanatory variable are relatively small. It appears that d = 1 is good enough to remove the trend of the data.
+ 
+#(e) For the chosen d, display a plot of the mean-centered differenced data.
+
+```{r,echo=F}
+#First different data. 
+##plot the differenced data
+diff.data = diff(data$V1, differences = 1)
+plot.ts(diff.data, type="o", col="cadetblue", xlab = "Time",ylab="",
+        main ="Data versus Time", pch = 16)
+ct.diff.data = diff.data - mean(diff.data)
+plot.ts(ct.diff.data, type="o", col="cadetblue", xlab = "Time",ylab="",
+        main ="Data versus Time", pch = 16)
+#Not much of difference between these 2 approach.
+```
+
+### 3. **(44 points)**_ Part 2: Determination of p and q for the mean-centered differenced data.You should begin by using a plot of the sample acf/pacf to make observations about possible orders of dependency. Then, you must use MLE to fit an ARMA(p, q) model for at least four combinations of p and q. Compare the plots of the ARMA(p, q) model together with sample acf/pacf values, plots of the model residuals, and the aic or aicc values to choose p and q.
+
+_Hint: The best model has p > 1 and q > 1. Some of the assigned points will depend on how close you get to the optimal values._
+
+For your answer:
+
+#### (a) Show the plot of the sample acf/pacf for the mean-centered differenced data.
+
+```{r,echo=F,include=F}
+
+#Set up library()
+library(magrittr)
+library(dplyr)
+library(TSA)
+library(tidyverse)
+library(forecast)
+
+#Get data differenced at first order.
+data = read.delim("C:\\Users\\silve\\OneDrive\\Desktop\\STAT 485\\Data\\so2.txt",
+                  header=F)
+x = data$V1
+time = time(data$V1)
+diff.data = diff(data$V1, order = 1)
+mc.diff.data= diff.data - mean(diff.data)
+```
+
+```{r,echo=F}
+#plot the ACF and PACF plots
+par(mar=c(4.5,4.5,4,2), mfrow=c(1,2))
+acf.sample = acf(mc.diff.data, lag.max = 40, plot = FALSE)
+plot(acf.sample, ylim=c(-1,1), main="Sample ACF")
+pacf.sample = pacf(mc.diff.data, lag.max = 40, plot = FALSE)
+plot(pacf.sample, ylim=c(-1,1), main="Sample PACF")
+```
+
+
+#### (b) Give observations on possible orders of dependency.
+
+  - In the ACF plot, we observe there is a cut off at the lag 2. 
+  
+  - In the PACF plot, we observe that it appears that there is exponential decay in first 6 lags.
+  
+  - We think that the possible orders of dependency is $q = 2$.
+
+#### (c) For the ARMA(p, q) estimated using MLE, show plots of the model acf/pacf values together with the sample acf/pacf and plots of the model residuals for four choices of p and q.
+
+_Display plots for only four choices even if you try more. If you try more, display results for values that help justify your final choice._
+
+ (i)First model ARMA(4,1,6)
+
+```{r,echo=F,warning=F}
+
+#ARMA(4,1,6)
+#Use MLE to fit an ARMA(4,1,6) Model.
+arma416 = Arima(x, order= c(4,1,6), method = "ML")
+#ACF/PACF of sample and model
+arma416.acf = ARMAacf(ar=c(arma416$coef[1],arma416$coef[2],arma416$coef[3],
+                           arma416$coef[4]),
+                      ma=c(arma416$coef[5],arma416$coef[6],arma416$coef[7],
+                           arma416$coef[8],arma416$coef[9],arma416$coef[10])
+                      ,lag.max = 40, pacf = FALSE)
+arma416.pacf = ARMAacf(ar=c(arma416$coef[1],arma416$coef[2],arma416$coef[3],
+                            arma416$coef[4]),
+                       ma=c(arma416$coef[5],arma416$coef[6],arma416$coef[7],
+                            arma416$coef[8],arma416$coef[9],arma416$coef[10])
+                       ,lag.max = 40, pacf = TRUE)
+#plots of the model acf/pacf values together with the sample acf/pacf and the model residuals
+par(mar=c(4.5,4.5,4,2), mfrow=c(1,3))
+#ACF Sample and Model 
+plot(acf.sample, ylim=c(-1,1), lwd = 2, col="cadetblue",
+     main="Sample ACF Model ACF")
+points(arma416.acf[-1], col="red", type="h", lwd = 1)
+#PACF Sample and Model 
+plot(pacf.sample, ylim=c(-1,1), lwd = 2, col="cadetblue",
+     main="Sample PACF Model PACF")
+points(arma416.pacf, col="red", type="h", lwd = 1)
+#Residual plots
+plot(arma416$residuals,main="Residual of ARMA(4,1,6)
+     model",
+     xlab="Time", ylab="Residuals",type = "o",pch=16,col="darkgreen")
+```
+
+ (ii) Second model ARMA(5,1,7).
+
+```{r,echo=F,warning=F}
+
+#Use MLE to fit an ARMA(5,1,7) Model.
+arma517 = Arima(data$V1, order= c(5,1,7), method = "ML")
+#ACF/PACF model
+arma517.acf = ARMAacf(ar=c(arma517$coef[1],arma517$coef[2],arma517$coef[3],
+                           arma517$coef[4],arma517$coef[5]),
+                      ma=c(arma517$coef[6],arma517$coef[7],arma517$coef[8],
+                           arma517$coef[9],arma517$coef[10],arma517$coef[11],
+                           arma517$coef[12]),
+                      lag.max = 40, pacf = FALSE)
+arma517.pacf = ARMAacf(ar=c(arma517$coef[1],arma517$coef[2],arma517$coef[3],
+                           arma517$coef[4],arma517$coef[5]),
+                      ma=c(arma517$coef[6],arma517$coef[7],arma517$coef[8],
+                           arma517$coef[9],arma517$coef[10],arma517$coef[11],
+                           arma517$coef[12]),
+                       lag.max = 40, pacf = TRUE)
+#ACF/PACF of sample & model plots
+par(mar=c(4.5,4.5,4,2), mfrow=c(1,3))
+plot(acf.sample, ylim=c(-1,1), lwd = 2, col="cadetblue",
+     main="Sample ACF Model ACF")
+points(arma517.acf[-1], col="red", type="h", lwd = 1)
+
+plot(pacf.sample, ylim=c(-1,1), lwd = 2, col="cadetblue",
+     main="Sample PACF Model PACF")
+points(arma517.pacf, col="red", type="h", lwd = 1)
+#Residual plots
+plot(arma517$residuals,main="Residual of ARMA(5,1,7)
+     model",
+     xlab="Time", ylab="Residuals",type = "o",pch=16,col="darkgreen")
+
+```
+
+ (iii) Third model ARMA(6,1,7).
+
+```{r,echo=F,warning=F}
+#Use MLE to fit an ARMA(6,1,7) Model.
+arma617 = Arima(x, order= c(6,1,7), method = "ML")
+#ACF/PACF model ARMA(6,1,7)
+arma617.acf = ARMAacf(ar=c(arma617$coef[1],arma617$coef[2],arma617$coef[3],
+                           arma617$coef[4],arma617$coef[5],arma617$coef[6]),
+                      ma=c(arma617$coef[7],arma617$coef[8],arma617$coef[9],
+                           arma617$coef[10],arma617$coef[11],arma617$coef[12],
+                           arma617$coef[13]),
+                      lag.max = 40, pacf = FALSE)
+arma617.pacf = ARMAacf(ar=c(arma617$coef[1],arma617$coef[2],arma617$coef[3],
+                           arma617$coef[4],arma617$coef[5],arma617$coef[6]),
+                      ma=c(arma617$coef[7],arma617$coef[8],arma617$coef[9],
+                           arma617$coef[10],arma617$coef[11],arma617$coef[12],
+                           arma617$coef[13]),
+                      lag.max = 40, pacf = TRUE)
+#ACF/PACF of Sample & Model plots
+par(mar=c(4.5,4.5,4,2), mfrow=c(1,3))
+plot(acf.sample, ylim=c(-1,1), lwd = 2, col="cadetblue", 
+     main="Sample ACF Model ACF")
+points(arma617.acf[-1], col="red", type="h", lwd = 1)
+plot(pacf.sample, ylim=c(-1,1), lwd = 2, col="cadetblue",
+     main="Sample PACF Model PACF")
+points(arma617.pacf, col="red", type="h", lwd = 1)
+#Residual plots
+plot(arma617$residuals,main="Residual of ARMA(6,1,7)
+     model",
+     xlab="Time", ylab="Residuals",type = "o",pch=16,col="darkgreen")
+
+```
+
+ (iv) forth model ARMA(7,1,7).
+
+```{r,echo=F,warning=F}
+
+#Use MLE to fit an ARMA(7,1,7) Model.
+arma717= stats::arima(data$V1, order= c(7,1,7), method = "ML",
+                      include.mean = FALSE)
+#ACF/PACF model ARMA(7,1,7)
+arma717.acf = ARMAacf(ar=c(arma717$coef[1],arma717$coef[2],arma717$coef[3],
+                           arma717$coef[4],arma717$coef[5],arma717$coef[6],
+                           arma717$coef[7]),
+                      ma=c(arma717$coef[8],arma717$coef[9],arma717$coef[10],
+                           arma717$coef[11],arma717$coef[12],arma717$coef[13],
+                           arma717$coef[14]),
+                      lag.max = 40, pacf = FALSE)
+arma717.pacf = ARMAacf(ar=c(arma717$coef[1],arma717$coef[2],arma717$coef[3],
+                           arma717$coef[4],arma717$coef[5],arma717$coef[6],
+                           arma717$coef[7]),
+                      ma=c(arma717$coef[8],arma717$coef[9],arma717$coef[10],
+                           arma717$coef[11],arma717$coef[12],arma717$coef[13],
+                           arma717$coef[14]),
+                      lag.max = 40, pacf = TRUE)
+#ACF/PACF of Sample & Model plots
+par(mar=c(4.5,4.5,4,2), mfrow=c(1,3))
+plot(acf.sample, ylim=c(-1,1), lwd = 2, col="cadetblue",
+     main="Sample ACF Model ACF")
+points(arma717.acf[-1], col="red", type="h", lwd = 1)
+plot(pacf.sample, ylim=c(-1,1), lwd = 2, col="cadetblue",
+     main="Sample PACF Model PACF")
+points(arma717.pacf, col="red", type="h", lwd = 1)
+#Residual plots
+plot(arma717$residuals,main="Residual of ARMA(7,1,7) 
+     model",
+     xlab="Time", ylab="Residuals",type = "o",pch=16,col="darkgreen")
+
+```
+
+#### (d) Give the aic or aicc values for each of the estimated models in (c).
+
+```{r,echo=F}
+
+#show AIC of 4 models.
+name.model = c("ARMA(4,1,6)","ARMA(5,1,7)", "ARMA(6,1,7)", "ARMA(7,1,7)")
+model.AIC = round(c(arma416$aic, arma517$aic, arma617$aic, arma717$aic),5)
+display.aic <- data.frame(name.model,model.AIC)
+colnames(display.aic) <- c("Model Name ","AIC")
+display.aic
+```
+
+#### (e) Specify the p and q values you choose and give the reason.
+
+- We choose $p=5, and q = 7$ since the model ARMA(5,1,7) has a low AIC value among all the models we tried. Although the AIC of model ARMA(5,1,7) is not the lowest one, but we believe that this AIC value is still a sufficient.
+
+- Although, we observe the ARMA(4,1,7) has the lowest AIC value, the PACF of the ARMA(4,1,6) shows a slow decay with a possibility of having a periodic trend in the model. Meanwhile, the ACF/PACF of sample and model ARMA(5,1,7) plots show the model value is more fitted with the sample value.
+
+### 4. (36 points) Part 3: Use MLE to fit the ARMA(p, q) model for the chosen p and q and analyze the model.
+
+_You have already displayed the original and mean-centered differenced data in 1. You are working with that data!_
+
+For your answer,
+
+#### (a) Specify p, d, and q.
+
+  - $p=5, d=1, q=7$
+  
+#### (b) Give the estimated coefficients for the MLE fit.
+
+```{r,include=F}
+library(magrittr)
+library(dplyr)
+library(TSA)
+library(tidyverse)
+library(tseries)
+library(itsmr)
+library(forecast)
+
+```
+
+```{r,echo=F,warning=F}
+#(b)
+#Get data differenced at first order.
+data = read.delim("C:\\Users\\silve\\OneDrive\\Desktop\\STAT 485\\Data\\so2.txt",
+                  header=F)
+x <- data$V1
+time = time(data$V1)
+diff.data = diff(data$V1, order = 1)
+#Use MLE to fit an ARMA(2,1,2) Model.
+arma517 = Arima(diff.data, order= c(5,0,7), method = "ML")
+arma517 #model summary
+
+#ACF/PACF of sample and model
+arma517.acf = ARMAacf(ar=c(arma517$coef[1],arma517$coef[2],arma517$coef[3],
+                         arma517$coef[4],arma517$coef[5]),
+                    ma=c(arma517$coef[6],arma517$coef[7],arma517$coef[8],
+                         arma517$coef[9],arma517$coef[10],arma517$coef[11],
+                         arma517$coef[12]),lag.max = 40, pacf = FALSE)
+
+arma517.pacf = ARMAacf(ar=c(arma517$coef[1],arma517$coef[2],arma517$coef[3],
+                         arma517$coef[4],arma517$coef[5]),
+                    ma=c(arma517$coef[6],arma517$coef[7],arma517$coef[8],
+                         arma517$coef[9],arma517$coef[10],arma517$coef[11],
+                         arma517$coef[12]),lag.max = 40, pacf = T)
+
+```
+
+### (c) Give the value of the AIC or AICC.
+
+```{r,echo=F}
+#(c)
+#AIC
+arma517$aic
+```
+
+### (d) Plot the model and sample acf/pacf values together.
+
+```{r,echo=F}
+par(mar=c(4.5,4.5,4,2), mfrow=c(1,2))
+acf.sample = acf(diff.data, lag.max = 40, plot = FALSE)
+plot(acf.sample, ylim=c(-1,1), lwd = 2, col="cadetblue",
+     main="Sample ACF Model ACF")
+points(arma517.acf[-1], col="red", type="h", lwd = 1)
+
+pacf.sample = pacf(diff.data, lag.max = 40, plot = FALSE)
+plot(pacf.sample, ylim=c(-1,1), lwd = 2, col="cadetblue",
+     main="Sample PACF Model PACF")
+points(arma517.pacf, col="red", type="h", lwd = 1)
+```
+
+### (e) Use the plot from (d) to assess the quality of the model fit.
+
+  - In ACF plot, the model fitted approximately well with the sample at the first 6 lags.
+  
+  - In the PACF plot, the model fitted approximately well with the sample at the first 9 lags.
+  
+### (f) Plot the standardized model residuals.
+
+```{r,echo=F}
+#(f)
+#Standardized Residual plots
+arma517.stad.res = rstandard(arma517)
+plot(arma517.stad.res,main="The standardized residual of ARMA(5,1,7)
+     model",
+     xlab="Time", ylab="Residuals",type = "o",pch=16,col="darkgreen")
+```
+
+### (g) Plot the sample acf/pacf for the standardized model residuals.
+
+```{r,echo=F}
+#(g)
+#Sample acf/pacf for the standardized model residuals.
+par(mar=c(4.5,4.5,4,2), mfrow=c(1,2))
+res.acf = acf(arma517.stad.res, lag.max = 40, plot = FALSE)
+plot(res.acf, ylim=c(-1,1), lwd = 2, col="cadetblue",
+     main="Sample ACF for 
+     Standardized model 
+     residuals")
+res.pacf = pacf(arma517.stad.res, lag.max = 40, plot = FALSE)
+plot(res.pacf, ylim=c(-1,1), lwd = 2, col="cadetblue",
+     main="Sample PACF for 
+     Standardized model 
+     residuals")
+
+```
+
+### (h) Assess the plots from (f) and (g) with respect to the hypothesis that the model residuals behave like iid noise.
+
+  - In the ACF plot, we do not observe any value that is outside of the bound. The ACF plot support the hypothesis that the model residuals behave like iid noise.
+  
+  - In the PACF plot, we do not observe any value that lies outside of the bound. The PACF support the hypothesis that the model residuals behave like iid noise.
+
+### (i) Evaluate the Ljung-Box and McLeod-Li statistics and indicate if they support rejection of the hypothesis that the model residuals behave like iid noise.
+
+```{r,echo=F}
+#(i)
+#The Ljung-Box test 
+Box.test(arma517.stad.res, type ="Ljung", lag=20)
+#The McLeod-Li test
+Box.test(arma517.stad.res^2, type ="Ljung", lag=20)
+```
+  
+  - In the Ljung-Box test, the test statistic is  9.88 and the p-value is 0.9702, which is larger than 0.05. The Ljung-Box test supports the hypothesis that the model residuals behave like iid noise.
+  
+  - In the McLeod-Li test, the test statistic is 55.87 and the p-value is $3.04*10^{-05}$, which is much lower than 0.05. The McLeod-Li test supports the rejection of the hypothesis that the model residuals behave like iid noise.
+  
+### (j) Using (h) and (i), give a final assessment on the validity of the hypothesis that the model residuals behave like iid noise.
+
+  - Both of the ACF and PACF plots support the hypothesis that the model residuals behave like iid noise. The Ljung-Box test support the hypothesis that the model residuals behave like iid noise while the McLeod-Li test does not support the rejection of the hypothesis. In conclusion, we do not reject the hypothesis that the model residuals behaves as iid noise.
+  
+### (k) Use the results from (e) and (j) to give a summary evaluation about the quality of the fitted model.
+
+_In 3., you compare the plots of model/sample acf/pacf and model residuals for different p and q to choose best values for p and q. In this question, you are asked to assess how well the model for the chosen p and q fits the data. The model corresponding to the best value of p and q may or may not be a good model!_
+
+  - We observe that the AIC of the ARMA(5,1,7) is sufficient among others models. 
+  
+  - In the ACF plot, the model captures the cutoff well at the first 2 lags. In the second lag, the value between the model and sample is completely accurate but the difference between the model and sample value is acceptable. 
+  
+  - In the PACF plot, the model captures the exponential decay pattern of the sample quite well. In the first lag, the model value is approximately accurate with the sample value. From the second to the ninth lag, the model value is not as highly accurate as the sample value but the difference between model and sample values are not significant.
+  
+  - In conclusion, the model corresponding to the best value of p and q might be a good model.
+  
+  
+## 5. (3 points) Part 4: Use the estimated model to make a forecast.
+
+  For your answer,
+  
+### (a) Plot the data together with prediction of values for 10 time steps past the last time of the data together with the confidence bounds.
+
+  
+```{r,include=F}
+#Library
+library(tidyverse)
+library(forecast)
+```
+
+```{r,echo=F}
+#Get data differenced at first order.
+data = read.delim("C:\\Users\\silve\\OneDrive\\Desktop\\STAT 485\\Data\\so2.txt",
+                  header=F)
+diff.data = diff(data$V1, order = 1)
+#Use MLE to fit an ARMA(5,1,7) Model.
+arma517 = Arima(diff.data, order= c(5,0,7), method = "ML")
+```
+
+```{r,echo=F}
+
+#Make a forecast
+pred = forecast::forecast(diff.data,model = arma517, h=10)
+plot(pred$x,xlim=c(440,520), type="o",lwd=1, 
+     main="The differenced data vs prediction value
+     for 10 steps", ylab="")
+points(pred$mean,col="red",type="o",lwd=1)
+points(pred$upper,col="blue",type="l",lwd=2)
+points(pred$lower,col="green",type="l",lwd=2)
+legend(480,-1.5, legend = c("predicted mean", "upper bound","lower bound", "differenced data"), cex = 0.75,pch=c(1,20,20,1), col=c("red","blue","green","black"))
+```
+
